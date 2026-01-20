@@ -1,0 +1,33 @@
+version: "3.9"
+
+services:
+  mariadb:
+    image: mariadb:11
+    container_name: mariadb
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: pass
+      MYSQL_DATABASE: primepass_db
+    ports:
+      - "3306:3306"
+    volumes:
+      - mariadb_data:/var/lib/mysql
+
+  flask-api:
+    build:
+      context: ./backend
+    container_name: primepass_backend
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      DB_HOST: mariadb
+      DB_USER: root
+      DB_PASSWORD: pass
+      DB_NAME: primepass_db
+    depends_on:
+      - mariadb
+
+
+volumes:
+  mariadb_data:
