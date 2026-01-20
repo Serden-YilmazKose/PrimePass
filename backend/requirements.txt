@@ -1,0 +1,3 @@
+mariadb
+flask
+flask_cors
