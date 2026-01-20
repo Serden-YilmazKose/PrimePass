@@ -29,9 +29,23 @@ The following is a list of features that are to be implemented:
 * MariaDB
 
 # Installation
-```shell
-pip install -r requirements.txt
-```
+
+1. Build and start containers in Primepass root folder
+
+        docker-compose up --build -d
+
+2. Test POST request
+
+        curl -X POST "http://localhost:5000/videos" -H "Content-Type: application/json" -d "{\"id\": \"123\"}" # for Windows CMD 
+
+3. Test GET request
+
+        curl -X GET "http://localhost:5000/videos?id=123"
+
+4. Stop containers when done
+
+        docker-compose down
+
 
 # Note
 Qui laborum fugiat sunt dolor. Corrupti velit laboriosam magni voluptatum ipsam dicta. Facere voluptatem quo expedita delectus aut libero maiores. Iure quaerat commodi rerum illum ab voluptatem quis non. Vitae nobis dignissimos ullam id deserunt enim optio.

@@ -3,7 +3,7 @@
 import json
 from flask import Flask, request, jsonify
 from flask_cors import CORS, cross_origin
-from init_db import connect_to_mariadb  # reuse the existing connection function
+from init_db import connect_to_mariadb
 
 app = Flask(__name__)
 CORS(app)
