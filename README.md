@@ -5,6 +5,7 @@ This project was built for the Distributed Systems course at the University of O
  The project aims to reach the following features:
 
 Event ticket sales requires reliable, fault-tolerant systems to handle large amounts of concurrent purchases. The goal is to build a distributed platform for real-time ticket sales and ML-based event recommendations.
+
 Novelty: integrates multiple services (ticket sale, event management, recommendation engine) to ensure consistency, scalability, and personalized suggestions.
 
 The following is a list of features that are to be implemented:
