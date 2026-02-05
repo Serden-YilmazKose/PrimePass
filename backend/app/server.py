@@ -1,61 +1,73 @@
-"""Flask API to make GET and POST requests to a MariaDB server"""
+"""Flask API for ticket sales using MariaDB"""
 
-import json
 from flask import Flask, request, jsonify
-from flask_cors import CORS, cross_origin
-from init_db import connect_to_mariadb
+from init_db import connect_to_mariadb, create_tables
 
 app = Flask(__name__)
-CORS(app)
 
+create_tables()
 
-@app.route("/videos", methods=["GET"])
-@cross_origin()
-def get_block():
-    """Handle GET Requests"""
-    video_id = request.args.get("id")
-    if not video_id:
-        return "Missing id parameter", 400
-    return select_video(video_id)
-
-
-@app.route("/videos", methods=["POST"])
-@cross_origin()
-def post_block():
-    """Handle POST Requests"""
-    if not request.is_json:
-        return "Request body must be JSON", 400
-    data = request.get_json()
-    if "id" not in data:
-        return "Missing 'id' in request body", 400
-    return insert_video(data["id"])
-
-
-def insert_video(video_id):
-    """Insert a row into VIDEOS"""
+@app.route("/api/events", methods=["GET"])
+def get_events():
     conn, cursor = connect_to_mariadb()
-    try:
-        cursor.execute("INSERT INTO VIDEOS (id) VALUES (?)", (video_id,))
-        conn.commit()
-    except Exception as e:
+    cursor.execute("SELECT id, name, date, available FROM EVENTS")
+    rows = cursor.fetchall()
+    cursor.close()
+    conn.close()
+
+    events = [
+        {
+            "id": row[0],
+            "name": row[1],
+            "date": row[2].isoformat(),
+            "available": row[3],
+        }
+        for row in rows
+    ]
+
+    return jsonify(events)
+
+
+@app.route("/api/purchase", methods=["POST"])
+def purchase_ticket():
+    if not request.is_json:
+        return jsonify({"error": "JSON required"}), 400
+
+    data = request.get_json()
+    event_id = data.get("event_id")
+    quantity = data.get("quantity")
+
+    if not event_id or not quantity:
+        return jsonify({"error": "Missing fields"}), 400
+
+    conn, cursor = connect_to_mariadb()
+
+    cursor.execute(
+        "SELECT available FROM EVENTS WHERE id = ?",
+        (event_id,),
+    )
+    row = cursor.fetchone()
+
+    if not row:
         cursor.close()
         conn.close()
-        return f"Database error: {e}", 500
+        return jsonify({"error": "Event not found"}), 404
+
+    if row[0] < quantity:
+        cursor.close()
+        conn.close()
+        return jsonify({"error": "Not enough tickets"}), 400
+
+    cursor.execute(
+        "UPDATE EVENTS SET available = available - ? WHERE id = ?",
+        (quantity, event_id),
+    )
+    conn.commit()
+
     cursor.close()
     conn.close()
-    return "DONE", 201
 
-
-def select_video(video_id):
-    """Select a row from VIDEOS"""
-    conn, cursor = connect_to_mariadb()
-    cursor.execute("SELECT id FROM VIDEOS WHERE id = ?", (video_id,))
-    row = cursor.fetchone()
-    cursor.close()
-    conn.close()
-    if not row:
-        return "Not found", 404
-    return jsonify({"id": row[0]})
+    return jsonify({"status": "success"}), 200
 
 
 if __name__ == "__main__":

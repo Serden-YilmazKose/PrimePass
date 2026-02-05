@@ -21,24 +21,31 @@ def connect_to_mariadb():
 def create_tables():
     conn, cursor = connect_to_mariadb()
 
-    # Create VIDEOS table if it does not exist
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS VIDEOS (
-        id VARCHAR(255) PRIMARY KEY
+    CREATE TABLE IF NOT EXISTS EVENTS (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        name VARCHAR(255) NOT NULL,
+        date DATE NOT NULL,
+        available INT NOT NULL
     )
     """)
 
-    # Create MYTABLE if it does not exist
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS MYTABLE (
-        id VARCHAR(255) PRIMARY KEY
-    )
-    """)
-
+    # Add data only if table is empty
+    cursor.execute("SELECT COUNT(*) FROM EVENTS")
+    if cursor.fetchone()[0] == 0:
+        cursor.execute("""
+        INSERT INTO EVENTS (name, date, available) VALUES
+        ('Rock Concert', '2026-03-12', 50),
+        ('Jazz Night', '2026-04-01', 30),
+        ('Comedy Show', '2026-05-20', 20)
+        """)
+    
     conn.commit()
     cursor.close()
     conn.close()
     print("Database tables ensured.")
+
+
 
 if __name__ == "__main__":
     create_tables()
