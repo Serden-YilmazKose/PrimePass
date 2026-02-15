@@ -1,36 +1,125 @@
+version: '3.8'
+
 services:
-  mariadb:
+  # Databases
+  mariadb-master:
     image: mariadb:11
-    container_name: mariadb
+    container_name: mariadb-master
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: pass
       MYSQL_DATABASE: primepass_db
     volumes:
-      - mariadb_data:/var/lib/mysql
+      - mariadb_master_data:/var/lib/mysql
+    networks:
+      - primepass-net
 
-  backend:
-    build:
-      context: ./backend
-    container_name: primepass_backend
+  mariadb-slave:
+    image: mariadb:11
+    container_name: mariadb-slave
     restart: always
     environment:
-      DB_HOST: mariadb
+      MYSQL_ROOT_PASSWORD: pass
+      MYSQL_DATABASE: primepass_db
+    volumes:
+      - mariadb_slave_data:/var/lib/mysql
+    depends_on:
+      - mariadb-master
+    # In a real setup you would configure replication; for simplicity we just use the same DB.
+    # For read scaling, the event service will read from slave but write to master.
+    networks:
+      - primepass-net
+
+  redis:
+    image: redis:alpine
+    container_name: redis
+    restart: always
+    networks:
+      - primepass-net
+
+  # Microservices
+  event-service:
+    build: ./event-service
+    container_name: event-service
+    restart: always
+    environment:
+      DB_HOST_MASTER: mariadb-master
+      DB_HOST_SLAVE: mariadb-slave
       DB_USER: root
       DB_PASSWORD: pass
       DB_NAME: primepass_db
+      REDIS_HOST: redis
     depends_on:
-      - mariadb
+      - mariadb-master
+      - mariadb-slave
+      - redis
+    volumes:
+      - ./logs:/logs   # for ML data collection
+    networks:
+      - primepass-net
+
+  user-service:
+    build: ./user-service
+    container_name: user-service
+    restart: always
+    environment:
+      JWT_SECRET: super-secret-key-change-in-production
+    volumes:
+      - user_data:/data   # for SQLite database
+    networks:
+      - primepass-net
+
+  payment-service:
+    build: ./payment-service
+    container_name: payment-service
+    restart: always
+    networks:
+      - primepass-net
+
+  recommendation-service:
+    build: ./recommendation-service
+    container_name: recommendation-service
+    restart: always
+    environment:
+      REDIS_HOST: redis
+    depends_on:
+      - redis
+    networks:
+      - primepass-net
+
+  ml-trainer:
+    build: ./ml-trainer
+    container_name: ml-trainer
+    restart: "no"   # run once then exit; can be triggered manually or by cron
+    environment:
+      REDIS_HOST: redis
+    depends_on:
+      - redis
+    volumes:
+      - ./logs:/logs
+    networks:
+      - primepass-net
+    # Uncomment to run automatically on startup:
+    # command: python train.py
 
   frontend:
-    build:
-      context: ./frontend
-    container_name: primepass_frontend
+    build: ./frontend
+    container_name: frontend
     restart: always
     ports:
       - "80:80"
     depends_on:
-      - backend
+      - event-service
+      - user-service
+      - payment-service
+      - recommendation-service
+    networks:
+      - primepass-net
+
+networks:
+  primepass-net:
 
 volumes:
-  mariadb_data:
+  mariadb_master_data:
+  mariadb_slave_data:
+  user_data:
