@@ -1,5 +1,0 @@
-pandas==2.0.3
-redis==5.0.1
-scikit-learn==1.3.0
-implicit==0.7.2   # for ALS, but we'll use a simple popularity baseline
-numpy==1.24.3

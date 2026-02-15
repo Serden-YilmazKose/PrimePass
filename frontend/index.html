@@ -4,13 +4,13 @@
     <meta charset="UTF-8">
     <title>PrimePass</title>
     <style>
-        /* Existing styles plus new ones for login */
         body {
             font-family: Arial, sans-serif;
             background-color: #f5f5f5;
             margin: 0;
             padding: 0;
         }
+
         header {
             background-color: #c5c3c4;
             height: 60px;
@@ -19,14 +19,17 @@
             justify-content: center;
             box-shadow: 0 2px 4px rgba(0,0,0,0.1);
         }
+
         header img {
             height: 60px;
         }
+
         h1 {
             text-align: left;
             margin: 1rem 0;
             padding: 1rem;
         }
+
         .event {
             background: #ffffff;
             border-radius: 6px;
@@ -35,15 +38,26 @@
             box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
             position: relative;
         }
+
         .event-title {
             font-size: 1.2rem;
             margin-bottom: 0.5rem;
         }
+
         .event-info {
             margin-bottom: 0.75rem;
             color: #555;
             font-size: 0.95rem;
         }
+
+        .tickets-left {
+            position: absolute;
+            left: 1rem;
+            bottom: 1rem;
+            font-size: 0.85rem;
+            color: #333;
+        }
+
         button {
             padding: 0.4rem 0.8rem;
             border: none;
@@ -53,40 +67,20 @@
             cursor: pointer;
             margin-left: 1rem;
         }
+
         button:hover {
             background-color: #0056b3;
         }
+
         input[type="number"] {
             width: 50px;
             margin-right: 0.5rem;
         }
+
         .message {
             margin-top: 1rem;
             text-align: center;
             font-weight: bold;
-        }
-        #auth {
-            margin: 1rem 2rem;
-            padding: 1rem;
-            background: #e9ecef;
-            border-radius: 6px;
-        }
-        #auth input {
-            margin-right: 0.5rem;
-            padding: 0.3rem;
-        }
-        #recommendations {
-            margin: 1rem 2rem;
-            padding: 1rem;
-            background: #fff3cd;
-            border-radius: 6px;
-        }
-        .rec-item {
-            display: inline-block;
-            margin: 0.5rem;
-            padding: 0.5rem 1rem;
-            background: #ffc107;
-            border-radius: 4px;
         }
     </style>
 </head>
@@ -96,26 +90,9 @@
     <img src="logo.png" alt="PrimePass Logo">
 </header>
 
-<div id="auth">
-    <h3>Login / Register</h3>
-    <input type="text" id="username" placeholder="Username">
-    <input type="password" id="password" placeholder="Password">
-    <button id="loginBtn">Login</button>
-    <button id="registerBtn">Register</button>
-    <span id="authMessage"></span>
-    <div id="userInfo" style="display:none;">
-        Logged in as: <span id="displayUsername"></span>
-        <button id="logoutBtn">Logout</button>
-    </div>
-</div>
-
 <h1>Available Events</h1>
-<div id="events"></div>
 
-<div id="recommendations" style="display:none;">
-    <h3>Recommended for you</h3>
-    <div id="recList"></div>
-</div>
+<div id="events"></div>
 
 <div id="message" class="message"></div>
 
