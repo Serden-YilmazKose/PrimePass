@@ -12,7 +12,7 @@ def connect_to_mariadb():
             password=os.environ.get("DB_PASSWORD", "pass"),
             host=os.environ.get("DB_HOST", "127.0.0.1"),
             port=3306,
-            database=os.environ.get("DB_NAME", "primepass_db")
+            database=os.environ.get("DB_NAME", "mariadb_primary")
         )
     except mariadb.Error as e:
         print(f"Error connecting to MariaDB: {e}")
