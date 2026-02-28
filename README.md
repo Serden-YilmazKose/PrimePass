@@ -34,7 +34,7 @@ The following is a list of features that are to be implemented:
 
         docker-compose up --build -d
 
-Use `populate_db` script to add content:
+Use `populate_db` script to add content (Or if you are trying replication, go to backend/DB_SETUP.md):
 
         docker exec -it primepass_backend python populate_db.py
 
