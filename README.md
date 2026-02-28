@@ -40,11 +40,13 @@ Use `populate_db` script to add content (Or if you are trying replication, go to
 
 2. Test POST request
 
-        curl -X POST "http://localhost:5000/videos" -H "Content-Type: application/json" -d "{\"id\": \"123\"}" # for Windows CMD 
+        curl -X POST http://localhost:5000/api/purchase \
+  -H "Content-Type: application/json" \
+  -d '{"user_id":"00000000-0000-0000-0000-000000000001","ticket_id":1,"quantity":1}'
 
-3. Test GET request
+3. List purchases
 
-        curl -X GET "http://localhost:5000/videos?id=123"
+        curl "http://localhost:5000/api/orders?user_id=00000000-0000-0000-0000-000000000001"
 
 4. Stop containers when done
 
