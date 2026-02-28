@@ -1,15 +1,13 @@
 """Flask API for ticket sales using MariaDB"""
 import uuid
+import mariadb
 
 from flask import Flask, jsonify, request
 from werkzeug.security import check_password_hash, generate_password_hash
 
-from init_db import connect_to_mariadb, create_tables
+from init_db import connect_to_mariadb
 
 app = Flask(__name__)
-
-create_tables()
-
 
 @app.route("/api/events", methods=["GET"])
 def get_events():
@@ -24,39 +22,54 @@ def get_events():
                 e.starts_at,
                 e.ends_at,
                 e.status,
-                COALESCE(SUM(t.remaining), 0) as total_remaining
+                t.id,
+                t.name,
+                t.price,
+                t.remaining
             FROM EVENT e
             LEFT JOIN TICKET t ON e.id = t.event_id
-            GROUP BY e.id
+            ORDER BY e.id
         """)
 
         rows = cursor.fetchall()
-        # cursor.close()
-        # conn.close()
 
-        events = [
-            {
-                "id": row[0],
-                "title": row[1],
-                "venue": row[2],
-                "city": row[3],
-                # Ignore of NULL
-                "starts_at": row[4].isoformat() if row[4] else None,
-                "ends_at": row[5].isoformat() if row[5] else None,
-                "status": row[6],
-                "remaining_tickets": row[7]
-            }
-            for row in rows
-        ]
-        return jsonify(events)
+        events_dict = {}
+
+        for row in rows:
+            event_id = row[0]
+
+            if event_id not in events_dict:
+                events_dict[event_id] = {
+                    "id": event_id,
+                    "title": row[1],
+                    "venue": row[2],
+                    "city": row[3],
+                    "starts_at": row[4].isoformat() if row[4] else None,
+                    "ends_at": row[5].isoformat() if row[5] else None,
+                    "status": row[6],
+                    "tickets": []
+                }
+
+            ticket_id = row[7]
+
+            if ticket_id:
+                events_dict[event_id]["tickets"].append({
+                    "id": ticket_id,
+                    "name": row[8],
+                    "price": float(row[9]),
+                    "remaining": row[10]
+                })
+
+        return jsonify(list(events_dict.values()))
+
     finally:
         cursor.close()
         conn.close()
 
-
 @app.route("/api/purchase", methods=["POST"])
 def purchase_ticket():
     if not request.is_json:
+        print("Request not JSON")
         return jsonify({"error": "JSON required"}), 400
 
     data = request.get_json()
@@ -64,35 +77,50 @@ def purchase_ticket():
     ticket_id = data.get("ticket_id")
     quantity = data.get("quantity")
 
+    print(f"Purchase request received: user_id={user_id}, ticket_id={ticket_id}, quantity={quantity}")
+
     if not user_id or not ticket_id or not quantity:
+        print("Missing required fields")
         return jsonify({"error": "Missing required fields"}), 400
 
     if quantity <= 0:
+        print("Invalid quantity")
         return jsonify({"error": "Invalid quantity"}), 400
+
     conn, cursor = connect_to_mariadb()
     try:
-        # Atomic update: only updates if there is enough stock
+        # Log before running the update
+        print(f"Attempting to decrease remaining tickets for ticket {ticket_id} by {quantity}")
         cursor.execute(
             "UPDATE TICKET SET remaining = remaining - ? WHERE id = ? AND remaining >= ?",
             (quantity, ticket_id, quantity)
         )
+        print(f"Rows affected: {cursor.rowcount}")
 
         if cursor.rowcount == 0:
+            print("No tickets available or insufficient remaining")
             return jsonify({"error": "Tickets unavailable or sold out"}), 400
 
-        # Bulk insert orders instead of a loop
-        order_data = [(str(uuid.uuid4()), user_id, ticket_id, 'confirmed')
-                      for _ in range(quantity)]
+        order_data = [(str(uuid.uuid4()), user_id, ticket_id, 'confirmed') for _ in range(quantity)]
+        print(f"Inserting orders: {order_data}")
+
         cursor.executemany("""
-            INSERT INTO `ORDER` (id, user_id, ticket_id, status, created_at)
-            VALUES (?, ?, ?, ?, NOW())
-        """, order_data)
+            INSERT INTO `ORDERS` (user_id, ticket_id, status, created_at)
+            VALUES (?, ?, ?, NOW())
+        """, [(user_id, ticket_id, 'confirmed') for _ in range(quantity)])
 
         conn.commit()
+        print("Transaction committed successfully")
         return jsonify({"status": "success"}), 200
-    except Exception:
+
+    except mariadb.Error as e:
         conn.rollback()
-        return jsonify({"error": "Transaction failed"}), 500
+        print(f"MariaDB error: {e}")
+        return jsonify({"error": f"Transaction failed: {e}"}), 500
+    except Exception as e:
+        conn.rollback()
+        print(f"Unexpected error: {e}")
+        return jsonify({"error": f"Transaction failed: {e}"}), 500
     finally:
         cursor.close()
         conn.close()
@@ -115,7 +143,7 @@ def get_orders():
                 e.title,
                 e.city,
                 e.starts_at
-            FROM `ORDER` o
+            FROM `ORDERS` o
             JOIN TICKET t ON o.ticket_id = t.id
             JOIN EVENT e ON t.event_id = e.id
             WHERE o.user_id = ?
@@ -160,7 +188,7 @@ def login():
 
     # 1. look for the user
     cursor.execute(
-        "select id, password_hash from user where email = ?", (email,))
+        "select id, password_hash from USERS where email = ?", (email,))
     user = cursor.fetchone()
 
     if user:
@@ -187,13 +215,13 @@ def login():
 
     try:
         cursor.execute("""
-            insert into user (id, name, email, password_hash, status)
+            insert into USERS (id, name, email, password_hash, status)
             values (?, ?, ?, ?, ?)
         """, (new_id, name, email, secure_hash, 'active'))
         conn.commit()
         return jsonify({"status": "user_created", "user_id": new_id}), 201
 
-    except exception:
+    except Exception:
         return jsonify({"error": "registration failed"}), 500
     finally:
         cursor.close()

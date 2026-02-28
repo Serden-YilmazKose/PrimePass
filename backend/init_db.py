@@ -12,7 +12,7 @@ def connect_to_mariadb():
             password=os.environ.get("DB_PASSWORD", "pass"),
             host=os.environ.get("DB_HOST", "127.0.0.1"),
             port=3306,
-            database=os.environ.get("DB_NAME", "mariadb_primary")
+            database=os.environ.get("DB_NAME", "primepass_db")
         )
     except mariadb.Error as e:
         print(f"Error connecting to MariaDB: {e}")
@@ -41,7 +41,7 @@ def create_tables():
 
     # USER TABLE
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS USER (
+    CREATE TABLE IF NOT EXISTS `USERS` (
         id VARCHAR(36) PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         email VARCHAR(255) NOT NULL UNIQUE,
@@ -67,19 +67,19 @@ def create_tables():
     )
     """)
 
-    # ORDER TABLE
+    # ORDERS TABLE
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS `ORDER` (
+    CREATE TABLE IF NOT EXISTS `ORDERS` (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id INT NOT NULL,
+        user_id VARCHAR(36) NOT NULL,
         ticket_id INT NOT NULL,
         status VARCHAR(50) NOT NULL,
         created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        CONSTRAINT fk_order_user
+        CONSTRAINT fk_orders_user
             FOREIGN KEY (user_id)
-            REFERENCES USER(id)
+            REFERENCES USERS(id)
             ON DELETE CASCADE,
-        CONSTRAINT fk_order_ticket
+        CONSTRAINT fk_orders_ticket
             FOREIGN KEY (ticket_id)
             REFERENCES TICKET(id)
             ON DELETE CASCADE

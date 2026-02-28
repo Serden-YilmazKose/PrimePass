@@ -34,6 +34,10 @@ The following is a list of features that are to be implemented:
 
         docker-compose up --build -d
 
+Use `populate_db` script to add content:
+
+        docker exec -it primepass_backend python populate_db.py
+
 2. Test POST request
 
         curl -X POST "http://localhost:5000/videos" -H "Content-Type: application/json" -d "{\"id\": \"123\"}" # for Windows CMD 

@@ -10,15 +10,20 @@ MariaDB replication allows one database server (the **primary**) to automaticall
 
 ## 1. Start Containers
     docker compose down -v
+
+    docker compose build
     docker compose up -d
 
 ---
 
 ## 2. Configure Primary for Replication
- Enter the primary container
-    docker exec -it mariadb_primary mariadb -u root -p
+ Enter the primary container, password is pass
+      
+      docker exec -it mariadb_primary mariadb -u root -p
 
  Inside MariaDB prompt:
+
+      USE primepass_db;
 
         CREATE USER 'replica'@'%' IDENTIFIED BY 'pass';
         GRANT REPLICATION SLAVE ON *.* TO 'replica'@'%';
@@ -27,11 +32,28 @@ MariaDB replication allows one database server (the **primary**) to automaticall
 
  Note the File and Position values for the replica setup
 
+Then, `exit`
+
+### 2a. Initialize Replica with Primary Data (Schema + Initial Data)
+
+Before starting replication, the replica must have the database and tables from the primary.
+
+On the host:
+
+      
+Dump the primary database using your backend container
+
+      docker exec -i primepass_backend sh -c \
+      "mysqldump -h mariadb_primary -u root -p --databases primepass_db --single-transaction --master-data=2" > primepass_db.sql
+
+      docker exec -i mariadb_replica1 mariadb -u root -p < primepass_db.sql
+
 ---
 
 ## 3. Configure Replica
- Enter the replica container
-    docker exec -it mariadb_replica1 mariadb -u root -p
+ Enter the replica container, password is pass
+
+      docker exec -it mariadb_replica1 mariadb -u root -p
 
  Inside MariaDB prompt:
 
@@ -50,8 +72,9 @@ MariaDB replication allows one database server (the **primary**) to automaticall
 ---
 
 ## 4. Initialize Database and Tables via Application
- Run your init_db script against the primary
-    docker exec -it mariadb_primary python /path/to/init_db.py
+ Run populate_db script against the primary
+
+      docker exec -it primepass_backend python populate_db.py
 
  This creates all tables and seed data on the primary; replicas will automatically replicate it
 

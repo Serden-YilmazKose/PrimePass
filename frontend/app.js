@@ -9,16 +9,36 @@ async function loadEvents() {
         const div = document.createElement("div");
         div.className = "event";
 
+        // Create ticket type boxes
+        let ticketBoxes = "";
+
+        if (event.tickets && event.tickets.length > 0) {
+            event.tickets.forEach(ticket => {
+                ticketBoxes += `
+                    <div class="ticket-box">
+                        <strong>${ticket.name}</strong><br>
+                        Price: €${ticket.price}<br>
+                        Remaining: ${ticket.remaining}<br>
+                        <input type="number" min="1" value="1"
+                            id="qty-${ticket.id}">
+                        <button data-ticket-id="${ticket.id}">
+                            Buy
+                        </button>
+                    </div>
+                `;
+            });
+        } else {
+            ticketBoxes = "<div>No tickets available</div>";
+        }
+
         div.innerHTML = `
-            <div class="event-title">${event.name}</div>
+            <div class="event-title">${event.title}</div>
             <div class="event-info">
-                Date: ${event.date}<br>
-                Tickets left: ${event.available}
+                Date: ${new Date(event.starts_at).toLocaleString()}<br>
             </div>
-            <input type="number" min="1" value="1" id="qty-${event.id}">
-            <button data-event-id="${event.id}">
-                Buy Ticket
-            </button>
+            <div class="ticket-container">
+                ${ticketBoxes}
+            </div>
         `;
 
         container.appendChild(div);
@@ -28,25 +48,24 @@ async function loadEvents() {
 }
 
 function attachPurchaseHandlers() {
-    document.querySelectorAll("button[data-event-id]").forEach(button => {
+    document.querySelectorAll("button[data-ticket-id]").forEach(button => {
         button.addEventListener("click", () => {
-            const eventId = button.getAttribute("data-event-id");
-            purchaseTicket(eventId);
+            const ticketId = button.getAttribute("data-ticket-id");
+            purchaseTicket(ticketId);
         });
     });
 }
 
-async function purchaseTicket(eventId) {
-    const qtyInput = document.getElementById(`qty-${eventId}`);
+async function purchaseTicket(ticketId) {
+    const qtyInput = document.getElementById(`qty-${ticketId}`);
     const quantity = parseInt(qtyInput.value, 10);
 
     const response = await fetch("/api/purchase", {
         method: "POST",
-        headers: {
-            "Content-Type": "application/json"
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-            event_id: eventId,
+            user_id: "00000000-0000-0000-0000-000000000001",  //NEEDS TO BE UPDATED, CURRENTLY TAKES THIS FROM populate_db.py
+            ticket_id: ticketId,
             quantity: quantity
         })
     });

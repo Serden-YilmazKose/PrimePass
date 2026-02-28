@@ -5,6 +5,7 @@ services:
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: pass
+      MYSQL_DATABASE: primepass_db 
     command: >
       --server-id=1
       --log-bin=mysql-bin
@@ -37,6 +38,8 @@ services:
       DB_NAME: primepass_db
     depends_on:
       - mariadb_primary
+    ports:
+    - "5000:5000"
 
   frontend:
     build:
