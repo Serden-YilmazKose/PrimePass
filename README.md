@@ -54,6 +54,11 @@ Use `populate_db` script to add content (Or if you are trying replication, go to
 
 
 # Note
+
+### Windows note (CRLF/LF)
+If the backend container keeps restarting with `exec ./entrypoint.sh: no such file or directory`,
+ensure `backend/entrypoint.sh` uses LF line endings. This repo includes a `.gitattributes` to enforce LF for `.sh` files.
+
 Qui laborum fugiat sunt dolor. Corrupti velit laboriosam magni voluptatum ipsam dicta. Facere voluptatem quo expedita delectus aut libero maiores. Iure quaerat commodi rerum illum ab voluptatem quis non. Vitae nobis dignissimos ullam id deserunt enim optio.
 
 Ullam aperiam animi qui perspiciatis consequatur dolores. Ea recusandae consequatur necessitatibus dolorem. Sed doloremque adipisci ut natus velit. Sed quam magni natus natus ea ut rerum est.
