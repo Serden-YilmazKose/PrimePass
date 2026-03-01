@@ -15,7 +15,7 @@ services:
 
   mariadb_replica1:
     image: mariadb:11
-    container_name: mariadb_replica1
+    container_name: mariadb-replica
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: pass
@@ -32,7 +32,7 @@ services:
     container_name: primepass_backend
     restart: always
     environment:
-      DB_HOST: mariadb_primary
+      DB_HOST: mariadb-primary
       DB_USER: root
       DB_PASSWORD: pass
       DB_NAME: primepass_db

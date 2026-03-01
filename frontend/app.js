@@ -1,6 +1,9 @@
 async function loadEvents() {
-    const response = await fetch("/api/events");
+    const response = await fetch(`${API_BASE}/api/events`);
     const events = await response.json();
+    const API_BASE = window.location.hostname.includes("localhost")
+  ? "http://localhost:5000"
+  : "https://prime-pass-backend-primepass.2.rahtiapp.fi"; //Allows both local and prod development
 
     const container = document.getElementById("events");
     container.innerHTML = "";
@@ -60,7 +63,7 @@ async function purchaseTicket(ticketId) {
     const qtyInput = document.getElementById(`qty-${ticketId}`);
     const quantity = parseInt(qtyInput.value, 10);
 
-    const response = await fetch("/api/purchase", {
+    const response = await fetch(`${API_BASE}/api/purchase`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
