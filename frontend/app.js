@@ -1,3 +1,23 @@
+const USER_ID = "00000000-0000-0000-0000-000000000001"; // TODO: replace with real logged-in user_id later
+const viewedThisPage = new Set();
+
+async function logActivity(userId, eventId, action, meta = null) {
+  try {
+    await fetch("/api/activity", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        user_id: userId,
+        event_id: eventId,
+        action: action,
+        meta: meta
+      })
+    });
+  } catch (e) {
+    console.warn("Activity logging failed:", e);
+  }
+}
+
 async function loadEvents() {
     const response = await fetch("/api/events");
     const events = await response.json();
@@ -40,6 +60,21 @@ async function loadEvents() {
                 ${ticketBoxes}
             </div>
         `;
+
+        const titleEl = div.querySelector(".event-title");
+    if (titleEl) {
+      titleEl.style.cursor = "pointer";
+      titleEl.title = "Click to log view";
+      titleEl.addEventListener("click", async () => {
+        if (viewedThisPage.has(event.id)) return;
+        viewedThisPage.add(event.id);
+
+        await logActivity(USER_ID, event.id, "view", { source: "ui_event_title_click" });
+
+        //const messageDiv = document.getElementById("message");
+        //messageDiv.textContent = `View logged for "${event.title}"`;
+      });
+    }
 
         container.appendChild(div);
     });
