@@ -1,3 +1,4 @@
-mariadb
+psycopg[binary]
 flask
 flask_cors
+werkzeug

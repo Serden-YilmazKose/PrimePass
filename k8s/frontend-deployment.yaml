@@ -1,11 +1,6 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  annotations:
-    kompose.cmd: kompose convert
-    kompose.version: 1.38.0 (HEAD)
-  labels:
-    io.kompose.service: frontend
   name: frontend
 spec:
   replicas: 1
@@ -14,15 +9,12 @@ spec:
       io.kompose.service: frontend
   template:
     metadata:
-      annotations:
-        kompose.cmd: kompose convert
-        kompose.version: 1.38.0 (HEAD)
       labels:
         io.kompose.service: frontend
     spec:
       containers:
         - image: frontend:latest
-          imagePullPolicy: Never
+          imagePullPolicy: IfNotPresent
           name: primepass-frontend
           ports:
             - containerPort: 80

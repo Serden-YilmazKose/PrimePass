@@ -1,88 +1,68 @@
 import os
 import sys
+import psycopg
 
-import mariadb
-
-
-def connect_to_mariadb():
-    """Connect to MariaDB using environment variables"""
+def connect_to_postgres():
+    """Connect to PostgreSQL using environment variables"""
     try:
-        conn = mariadb.connect(
-            user=os.environ.get("DB_USER", "root"),
-            password=os.environ.get("DB_PASSWORD", "pass"),
+        conn = psycopg.connect(
             host=os.environ.get("DB_HOST", "127.0.0.1"),
-            port=3306,
-            database=os.environ.get("DB_NAME", "primepass_db")
+            dbname=os.environ.get("DB_NAME", "primepass_db"),
+            user=os.environ.get("DB_USER", "appuser"),
+            password=os.environ.get("DB_PASSWORD", "SecurePassword"),
+            port=5432
         )
-    except mariadb.Error as e:
-        print(f"Error connecting to MariaDB: {e}")
+    except psycopg.Error as e:
+        print(f"Error connecting to PostgreSQL: {e}")
         sys.exit(1)
-    cursor = conn.cursor()
-    return conn, cursor
-
+    return conn, conn.cursor()
 
 def create_tables():
-    conn, cursor = connect_to_mariadb()
+    conn, cursor = connect_to_postgres()
 
-    # EVENT TABLE
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS EVENT (
-        id INT AUTO_INCREMENT PRIMARY KEY,
+    CREATE TABLE IF NOT EXISTS event (
+        id SERIAL PRIMARY KEY,
         title VARCHAR(255) NOT NULL,
         venue VARCHAR(255) NOT NULL,
         city VARCHAR(255) NOT NULL,
         description TEXT,
-        starts_at DATETIME NOT NULL,
-        ends_at DATETIME NOT NULL,
+        starts_at TIMESTAMP NOT NULL,
+        ends_at TIMESTAMP NOT NULL,
         status VARCHAR(50) NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     """)
 
-    # USER TABLE
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS `USERS` (
-        id VARCHAR(36) PRIMARY KEY,
+    CREATE TABLE IF NOT EXISTS users (
+        id UUID PRIMARY KEY,
         name VARCHAR(255) NOT NULL,
         email VARCHAR(255) NOT NULL UNIQUE,
         password_hash VARCHAR(255) NOT NULL,
         status VARCHAR(50) NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     """)
 
-    # TICKET TABLE
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS TICKET (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        event_id INT NOT NULL,
+    CREATE TABLE IF NOT EXISTS ticket (
+        id SERIAL PRIMARY KEY,
+        event_id INT NOT NULL REFERENCES event(id) ON DELETE CASCADE,
         name VARCHAR(255) NOT NULL,
-        price DECIMAL(10,2) NOT NULL,
+        price NUMERIC(10,2) NOT NULL,
         capacity INT NOT NULL,
-        remaining INT NOT NULL,
-        CONSTRAINT fk_ticket_event
-            FOREIGN KEY (event_id)
-            REFERENCES EVENT(id)
-            ON DELETE CASCADE
+        remaining INT NOT NULL
     )
     """)
 
-    # ORDERS TABLE
     cursor.execute("""
-    CREATE TABLE IF NOT EXISTS `ORDERS` (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        user_id VARCHAR(36) NOT NULL,
-        ticket_id INT NOT NULL,
+    CREATE TABLE IF NOT EXISTS orders (
+        id SERIAL PRIMARY KEY,
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        ticket_id INT NOT NULL REFERENCES ticket(id) ON DELETE CASCADE,
         status VARCHAR(50) NOT NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        CONSTRAINT fk_orders_user
-            FOREIGN KEY (user_id)
-            REFERENCES USERS(id)
-            ON DELETE CASCADE,
-        CONSTRAINT fk_orders_ticket
-            FOREIGN KEY (ticket_id)
-            REFERENCES TICKET(id)
-            ON DELETE CASCADE
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
     """)
 
@@ -90,7 +70,6 @@ def create_tables():
     cursor.close()
     conn.close()
     print("All tables ensured.")
-
 
 if __name__ == "__main__":
     create_tables()

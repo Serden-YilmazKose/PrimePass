@@ -1,39 +1,35 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  annotations:
-    kompose.cmd: kompose convert
-    kompose.version: 1.38.0 (HEAD)
-  labels:
-    io.kompose.service: backend
   name: backend
 spec:
   replicas: 1
   selector:
     matchLabels:
-      io.kompose.service: backend
+      app: backend
   template:
     metadata:
-      annotations:
-        kompose.cmd: kompose convert
-        kompose.version: 1.38.0 (HEAD)
       labels:
-        io.kompose.service: backend
+        app: backend
     spec:
       containers:
-        - env:
-            - name: DB_HOST
-              value: mariadb
-            - name: DB_NAME
-              value: primepass_db
-            - name: DB_PASSWORD
-              value: pass
-            - name: DB_USER
-              value: root
+        - name: primepass-backend
           image: backend:latest
-          imagePullPolicy: Never
-          name: primepass-backend
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5000
-              protocol: TCP
-      restartPolicy: Always
+          env:
+            - name: DB_HOST
+              value: primepass-primary
+            - name: DB_NAME
+              value: primepass_db
+            - name: DB_USER
+              valueFrom:
+                secretKeyRef:
+                  name: primepass-appuser
+                  key: username
+            - name: DB_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: primepass-appuser
+                  key: password
