@@ -4,26 +4,10 @@ services:
     container_name: mariadb
     restart: always
     environment:
-      MARIADB_ROOT_PASSWORD: pass
-      MARIADB_DATABASE: primepass_db
       MYSQL_ROOT_PASSWORD: pass
       MYSQL_DATABASE: primepass_db 
     volumes:
-      - mariadb_primary_data:/var/lib/mysql
-
-  mariadb_replica1:
-    image: mariadb:11
-    container_name: mariadb_replica1
-    restart: always
-    environment:
-      MARIADB_ROOT_PASSWORD: pass
-      MYSQL_ROOT_PASSWORD: pass
-    command: >
-      --server-id=2
-    volumes:
-      - mariadb_replica1_data:/var/lib/mysql
-    depends_on:
-      - mariadb_primary
+      - mariadb_data:/var/lib/mysql
 
   backend:
     build:
