@@ -1,30 +1,13 @@
 services:
-  mariadb_primary:
+  mariadb:
     image: mariadb:11
-    container_name: mariadb_primary
+    container_name: mariadb
     restart: always
     environment:
       MYSQL_ROOT_PASSWORD: pass
       MYSQL_DATABASE: primepass_db 
-    command: >
-      --server-id=1
-      --log-bin=mysql-bin
-      --binlog-format=ROW
     volumes:
-      - mariadb_primary_data:/var/lib/mysql
-
-  mariadb_replica1:
-    image: mariadb:11
-    container_name: mariadb_replica1
-    restart: always
-    environment:
-      MYSQL_ROOT_PASSWORD: pass
-    command: >
-      --server-id=2
-    volumes:
-      - mariadb_replica1_data:/var/lib/mysql
-    depends_on:
-      - mariadb_primary
+      - mariadb_data:/var/lib/mysql
 
   backend:
     build:
@@ -32,12 +15,12 @@ services:
     container_name: primepass_backend
     restart: always
     environment:
-      DB_HOST: mariadb_primary
+      DB_HOST: mariadb
       DB_USER: root
       DB_PASSWORD: pass
       DB_NAME: primepass_db
     depends_on:
-      - mariadb_primary
+      - mariadb
     ports:
     - "5000:5000"
 
@@ -52,5 +35,4 @@ services:
       - backend
 
 volumes:
-  mariadb_primary_data:
-  mariadb_replica1_data:
+  mariadb_data:
