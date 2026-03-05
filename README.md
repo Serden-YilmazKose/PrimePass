@@ -27,15 +27,12 @@ The following is a list of features that are to be implemented:
 * System Architecture: Microservices for users, events, tickets, payments, and recommendations using APIs.
 * Middleware: Centralized logging, distributed data tracing, and caching of frequently requested data.
 * Cloud & Deployment: Containerize services; deploy on Kubernetes or cloud platform with scalable infrastructure.
-* ML data collection: Collect user activity and event history for recommendation model training.
-* Distributed ML: Provide event suggestions via a scalable recommendation service with  failure handling.
-* Personalized recommendations: integrated into event browsing, with fallback to popular events if ML service is unavailable.
 
 # Tools
 * Python
 * Flask
 * Docker
-* MariaDB
+* PostgreSQL
 
 # Installation
 
