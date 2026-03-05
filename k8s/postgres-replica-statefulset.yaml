@@ -17,13 +17,18 @@ spec:
     spec:
       containers:
         - name: postgres
-          image: bitnami/postgresql:14
+          image: bitnami/postgresql:latest
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 5432
           env:
             - name: POSTGRESQL_POSTGRES_PASSWORD
               value: "adminpassword"
+            - name: POSTGRESQL_PASSWORD
+              valueFrom:
+                configMapKeyRef:
+                  name: postgres-config
+                  key: POSTGRES_PASSWORD
             - name: POSTGRESQL_REPLICATION_MODE
               value: slave
             - name: POSTGRESQL_REPLICATION_USER
@@ -34,9 +39,11 @@ spec:
                   name: postgres-replication-secret
                   key: password
             - name: POSTGRESQL_MASTER_HOST
-              value: primepass-primary   # points to the primary service
+              value: primepass-primary
             - name: POSTGRESQL_MASTER_PORT
               value: "5432"
+            - name: POSTGRESQL_WAIT_FOR_PRIMARY
+              value: "true"
           volumeMounts:
             - name: postgres-data
               mountPath: /bitnami/postgresql

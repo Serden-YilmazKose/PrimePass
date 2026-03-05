@@ -47,10 +47,10 @@ Apply all YAML files in the correct order:
     kubectl apply -f postgres-primary-service.yaml
     kubectl apply -f postgres-replica-service.yaml
     # Then reapply backend, frontend, configmap, etc. if they were deleted
-    kubectl apply -f ../backend-deployment.yaml
-    kubectl apply -f ../backend-service.yaml
-    kubectl apply -f ../frontend-deployment.yaml
-    kubectl apply -f ../frontend-service.yaml
+    kubectl apply -f backend-deployment.yaml
+    kubectl apply -f backend-service.yaml
+    kubectl apply -f frontend-deployment.yaml
+    kubectl apply -f frontend-service.yaml
 
     cd ..
 
