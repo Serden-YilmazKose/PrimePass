@@ -6,6 +6,31 @@ from init_db import connect_to_postgres
 
 app = Flask(__name__)
 
+def _safe_int(value, default=None):
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+    
+def log_activity(cursor, user_id: str, event_id, action: str, meta: dict | None = None):
+    """
+    Insert into USER_ACTIVITY.
+    Table columns assumed:
+      (id VARCHAR(36), user_id VARCHAR(36), event_id INT NULL, action VARCHAR(50), meta JSON NULL, created_at ...)
+    """
+    activity_id = str(uuid.uuid4())
+    meta_json = json.dumps(meta) if meta is not None else None
+
+    cursor.execute(
+        """
+        INSERT INTO USER_ACTIVITY (id, user_id, event_id, action, meta)
+        VALUES (?, ?, ?, ?, ?)
+        """,
+        (activity_id, user_id, event_id, action, meta_json),
+    )
+    return activity_id
+
+
 @app.route("/api/events", methods=["GET"])
 def get_events():
     conn, cursor = connect_to_postgres()
@@ -38,6 +63,47 @@ def get_events():
     finally:
         cursor.close()
         conn.close()
+
+@app.route("/api/activity", methods=["POST"])
+def track_activity():
+    if not request.is_json:
+        return jsonify({"error": "JSON required"}), 400
+
+    data = request.get_json()
+    user_id = data.get("user_id")
+    event_id = data.get("event_id")  
+    action = data.get("action") or "view"
+    meta = data.get("meta")  
+
+    # Basic validation
+    if not user_id:
+        return jsonify({"error": "user_id required"}), 400
+
+    # If event_id is provided, ensure it's an integer or can be converted to one
+    if event_id is not None:
+        event_id_int = _safe_int(event_id)
+        if event_id_int is None:
+            return jsonify({"error": "event_id must be an integer"}), 400
+        event_id = event_id_int
+
+    if not isinstance(action, str) or not action.strip():
+        return jsonify({"error": "action must be a non-empty string"}), 400
+
+    if meta is not None and not isinstance(meta, dict):
+        return jsonify({"error": "meta must be an object/dict"}), 400
+
+    conn, cursor = connect_to_mariadb()
+    try:
+        activity_id = log_activity(cursor, user_id=user_id, event_id=event_id, action=action, meta=meta)
+        conn.commit()
+        return jsonify({"status": "ok", "activity_id": activity_id}), 201
+    except mariadb.Error as e:
+        conn.rollback()
+        return jsonify({"error": f"Activity logging failed: {e}"}), 500
+    finally:
+        cursor.close()
+        conn.close()
+
 
 @app.route("/api/purchase", methods=["POST"])
 def purchase_ticket():

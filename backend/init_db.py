@@ -66,6 +66,27 @@ def create_tables():
     )
     """)
 
+    # USER_ACTIVITY TABLE
+    cursor.execute("""CREATE TABLE IF NOT EXISTS `USER_ACTIVITY` (
+        id VARCHAR(36) PRIMARY KEY,
+        user_id VARCHAR(36) NOT NULL,
+        event_id INT NULL,
+        action VARCHAR(50) NOT NULL,
+        meta JSON NULL,
+        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_activity_user_created (user_id, created_at),
+        INDEX idx_activity_event_created (event_id, created_at),
+        CONSTRAINT fk_user_activity_user
+            FOREIGN KEY (user_id)
+            REFERENCES USERS(id)
+            ON DELETE CASCADE,
+        CONSTRAINT fk_user_activity_event
+            FOREIGN KEY (event_id)
+            REFERENCES EVENT(id)
+            ON DELETE SET NULL
+    )
+    """) 
+
     conn.commit()
     cursor.close()
     conn.close()
