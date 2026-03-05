@@ -3,17 +3,34 @@ import requests
 import time
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-def test_concurrent_purchases(api_client, test_user, test_event):
+@pytest.mark.parametrize("num_requests", [20, 2000])
+def test_concurrent_purchases(api_client, test_user, db_cursor, num_requests):
     """
-    Simulate many users trying to buy tickets for the same event concurrently.
-    Oversubscribe a limited ticket pool and verify correct handling:
-    - No overselling
-    - Expected 'sold out' responses for excess requests
-    - No unexpected errors (e.g., 500, timeouts)
+    Simulate many users buying tickets concurrently.
+    Runs with different loads (20 and 2000 requests).
+    Verifies no overselling and no unexpected errors.
     """
-    ticket_id = test_event["tickets"]["Standard"]
-    available = 10
-    num_requests = 20
+    # Create a fresh event with enough tickets for half the requests
+    available = num_requests // 2
+    from datetime import datetime, timedelta
+
+    # Insert event
+    db_cursor.execute("""
+        INSERT INTO event (title, venue, city, description, starts_at, ends_at, status)
+        VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id
+    """, ("Concurrent Test Event", "Test Venue", "Test City", "Load test event",
+          datetime.now(), datetime.now() + timedelta(hours=2), "active"))
+    event_id = db_cursor.fetchone()[0]
+
+    # Insert a single ticket type with the desired capacity
+    db_cursor.execute("""
+        INSERT INTO ticket (event_id, name, price, capacity, remaining)
+        VALUES (%s, %s, %s, %s, %s) RETURNING id
+    """, (event_id, "Test Ticket", 10.0, available, available))
+    ticket_id = db_cursor.fetchone()[0]
+
+    db_cursor.connection.commit()
+
     quantity_per_request = 1
 
     def purchase(i):
@@ -59,7 +76,7 @@ def test_concurrent_purchases(api_client, test_user, test_event):
         if r not in successes and r not in expected_failures
     ]
 
-    print(f"\n--- Concurrent Purchase Test ---")
+    print(f"\n--- Concurrent Purchase Test (num_requests={num_requests}) ---")
     print(f"Total requests:          {num_requests}")
     print(f"Successful purchases:    {len(successes)}")
     print(f"Expected failures (sold out): {len(expected_failures)}")
@@ -81,7 +98,7 @@ def test_concurrent_purchases(api_client, test_user, test_event):
         print(f"Min latency:             {min(latencies):.3f}s")
         print(f"Max latency:             {max(latencies):.3f}s")
 
-    # Correct handling rate = (successes + expected_failures) / total * 100
+    # Correct handling rate
     correct = len(successes) + len(expected_failures)
     correct_rate = correct / num_requests * 100
     print(f"Correct handling rate:   {correct_rate:.1f}%")
