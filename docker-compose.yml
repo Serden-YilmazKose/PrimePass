@@ -1,38 +1,88 @@
 services:
   mariadb:
-    image: mariadb:11
-    container_name: mariadb
-    restart: always
+    image: mariadb:10.11
+    container_name: primepass-db
     environment:
       MYSQL_ROOT_PASSWORD: pass
-      MYSQL_DATABASE: primepass_db 
+    ports:
+      - "3306:3306"
     volumes:
-      - mariadb_data:/var/lib/mysql
+      - ./init-dbs.sql:/docker-entrypoint-initdb.d/init.sql
+      - db-data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      timeout: 10s
+      retries: 10
 
-  backend:
-    build:
-      context: ./backend
-    container_name: primepass_backend
-    restart: always
+  user-service:
+    build: ./user-service
+    container_name: user-service
     environment:
       DB_HOST: mariadb
       DB_USER: root
       DB_PASSWORD: pass
-      DB_NAME: primepass_db
+      DB_NAME: user_db
     depends_on:
-      - mariadb
+      mariadb:
+        condition: service_healthy
     ports:
-    - "5000:5000"
+      - "5001:5001"
 
-  frontend:
-    build:
-      context: ./frontend
-    container_name: primepass_frontend
-    restart: always
+  event-service:
+    build: ./event-service
+    container_name: event-service
+    environment:
+      DB_HOST: mariadb
+      DB_USER: root
+      DB_PASSWORD: pass
+      DB_NAME: event_db
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    ports:
+      - "5002:5002"
+
+  ticket-service:
+    build: ./ticket-service
+    container_name: ticket-service
+    environment:
+      DB_HOST: mariadb
+      DB_USER: root
+      DB_PASSWORD: pass
+      DB_NAME: ticket_db
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    ports:
+      - "5003:5003"
+
+  recommendation-service:
+    build: ./recommendation-service
+    container_name: recommendation-service
+    environment:
+      DB_HOST: mariadb
+      DB_USER: root
+      DB_PASSWORD: pass
+      DB_NAME: recommendation_db
+    depends_on:
+      mariadb:
+        condition: service_healthy
+    ports:
+      - "5004:5004"
+
+  api-gateway:
+    image: nginx:alpine
+    container_name: api-gateway
+    volumes:
+      - ./frontend/nginx.conf:/etc/nginx/conf.d/default.conf
+      - ./frontend:/usr/share/nginx/html
     ports:
       - "80:80"
     depends_on:
-      - backend
+      - user-service
+      - event-service
+      - ticket-service
+      - recommendation-service
 
 volumes:
-  mariadb_data:
+  db-data:

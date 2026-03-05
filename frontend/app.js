@@ -116,4 +116,32 @@ async function purchaseTicket(ticketId) {
     }
 }
 
-document.addEventListener("DOMContentLoaded", loadEvents);
+async function loadRecommendations(userId) {
+    try {
+        const response = await fetch(`/api/recommendations/${userId}`);
+        const events = await response.json();
+
+        const container = document.getElementById("recommendations");
+        container.innerHTML = "";
+
+        events.forEach(event => {
+            const div = document.createElement("div");
+            div.className = "event";
+            div.innerHTML = `
+                <div class="event-title">${event.title}</div>
+                <div class="event-info">
+                    ${event.venue}, ${event.city}<br>
+                    ${new Date(event.starts_at).toLocaleString()}
+                </div>
+            `;
+            container.appendChild(div);
+        });
+    } catch (e) {
+        console.warn("Failed to load recommendations:", e);
+    }
+}
+
+document.addEventListener("DOMContentLoaded", () => {
+    loadEvents();
+    loadRecommendations(USER_ID);
+});
