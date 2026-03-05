@@ -7,7 +7,7 @@ def test_get_events(api_client):
     assert resp.status_code == 200
     data = resp.json()
     assert isinstance(data, list)
-    if data:  # if any events exist
+    if data:  
         event = data[0]
         assert "id" in event
         assert "title" in event
@@ -55,13 +55,13 @@ def test_purchase_ticket(api_client, test_user, test_event):
 
 def test_purchase_insufficient_tickets(api_client, test_user, test_event):
     """Attempt to buy more tickets than available."""
-    ticket_id = test_event["tickets"]["VIP"]  # capacity 5
-    # First buy 5 (all)
+    ticket_id = test_event["tickets"]["VIP"]  
+   
     payload1 = {"user_id": test_user["id"], "ticket_id": ticket_id, "quantity": 5}
     resp1 = api_client.post(f"{api_client.base_url}/api/purchase", json=payload1)
     assert resp1.status_code == 200
 
-    # Try to buy 1 more – should fail
+    
     payload2 = {"user_id": test_user["id"], "ticket_id": ticket_id, "quantity": 1}
     resp2 = api_client.post(f"{api_client.base_url}/api/purchase", json=payload2)
     assert resp2.status_code == 400
@@ -69,7 +69,7 @@ def test_purchase_insufficient_tickets(api_client, test_user, test_event):
 
 def test_get_orders(api_client, test_user, test_event):
     """GET /api/orders?user_id=... should return user's orders."""
-    # First make a purchase
+    
     ticket_id = test_event["tickets"]["Standard"]
     api_client.post(f"{api_client.base_url}/api/purchase", json={
         "user_id": test_user["id"],
@@ -77,7 +77,7 @@ def test_get_orders(api_client, test_user, test_event):
         "quantity": 1
     })
 
-    # Retrieve orders
+   
     resp = api_client.get(f"{api_client.base_url}/api/orders", params={"user_id": test_user["id"]})
     assert resp.status_code == 200
     orders = resp.json()
