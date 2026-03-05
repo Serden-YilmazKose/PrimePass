@@ -10,11 +10,11 @@ def test_concurrent_purchases(api_client, test_user, db_cursor, num_requests):
     Runs with different loads (20 and 2000 requests).
     Verifies no overselling and no unexpected errors.
     """
-    # Create a fresh event with enough tickets for half the requests
+   
     available = num_requests // 2
     from datetime import datetime, timedelta
 
-    # Insert event
+    
     db_cursor.execute("""
         INSERT INTO event (title, venue, city, description, starts_at, ends_at, status)
         VALUES (%s, %s, %s, %s, %s, %s, %s) RETURNING id
@@ -22,7 +22,7 @@ def test_concurrent_purchases(api_client, test_user, db_cursor, num_requests):
           datetime.now(), datetime.now() + timedelta(hours=2), "active"))
     event_id = db_cursor.fetchone()[0]
 
-    # Insert a single ticket type with the desired capacity
+    
     db_cursor.execute("""
         INSERT INTO ticket (event_id, name, price, capacity, remaining)
         VALUES (%s, %s, %s, %s, %s) RETURNING id
@@ -65,7 +65,7 @@ def test_concurrent_purchases(api_client, test_user, db_cursor, num_requests):
         for future in as_completed(futures):
             results.append(future.result())
 
-    # Categorise results
+   
     successes = [r for r in results if r["status_code"] == 200]
     expected_failures = [
         r for r in results
@@ -82,15 +82,15 @@ def test_concurrent_purchases(api_client, test_user, db_cursor, num_requests):
     print(f"Expected failures (sold out): {len(expected_failures)}")
     print(f"Unexpected failures:     {len(unexpected_failures)}")
 
-    # Verify no overselling
+    
     total_sold = len(successes) * quantity_per_request
     assert total_sold <= available, f"Oversold! Sold {total_sold} of {available}"
 
-    # Verify all unexpected failures are zero
+   
     assert len(unexpected_failures) == 0, \
         f"Unexpected failures occurred: {unexpected_failures}"
 
-    # Latency for successful purchases
+    
     if successes:
         latencies = [r["elapsed"] for r in successes]
         avg_latency = sum(latencies) / len(latencies)
@@ -98,7 +98,7 @@ def test_concurrent_purchases(api_client, test_user, db_cursor, num_requests):
         print(f"Min latency:             {min(latencies):.3f}s")
         print(f"Max latency:             {max(latencies):.3f}s")
 
-    # Correct handling rate
+    
     correct = len(successes) + len(expected_failures)
     correct_rate = correct / num_requests * 100
     print(f"Correct handling rate:   {correct_rate:.1f}%")
