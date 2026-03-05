@@ -1,4 +1,4 @@
-const USER_ID = "00000000-0000-0000-0000-000000000001"; // TODO: replace with real logged-in user_id later
+const USER_ID = "00000000-0000-0000-0000-000000000001"; 
 const viewedThisPage = new Set();
 
 async function logActivity(userId, eventId, action, meta = null) {
@@ -99,7 +99,7 @@ async function purchaseTicket(ticketId) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-            user_id: "00000000-0000-0000-0000-000000000001",  //NEEDS TO BE UPDATED, CURRENTLY TAKES THIS FROM populate_db.py
+            user_id: "00000000-0000-0000-0000-000000000001",  
             ticket_id: ticketId,
             quantity: quantity
         })
