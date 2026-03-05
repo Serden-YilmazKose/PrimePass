@@ -8,7 +8,7 @@ This project was built for the Distributed Systems course at the University of O
 
 [![Final Demo Video](https://img.youtube.com/vi/H5lC2QrodfQ/0.jpg)](https://youtu.be/H5lC2QrodfQ)
 
-### For the full project report, see [Project_report.pdf](Project_report.pdf).
+### For the full project report, see [Project-report.pdf](Project-report.pdf).
 
 # Purpose
  The project aims to reach the following features:
