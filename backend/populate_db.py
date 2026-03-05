@@ -19,13 +19,19 @@ def connect_to_postgres():
         sys.exit(1)
     return conn, conn.cursor()
 
-def insert_event(cursor, title, venue, city, description, starts_at, ends_at, status):
-    cursor.execute("SELECT id FROM event WHERE title = %s", (title,))
-    row = cursor.fetchone()
-    if row:
-        print(f"Event '{title}' already exists.")
-        return row[0]
+def clear_all_data(cursor):
+    """Delete all data from tables in correct order (respecting foreign keys)."""
+    print("Clearing existing data...")
+    # Delete in reverse order of dependencies
+    cursor.execute("DELETE FROM user_activity")
+    cursor.execute("DELETE FROM orders")
+    cursor.execute("DELETE FROM ticket")
+    cursor.execute("DELETE FROM event")
+    cursor.execute("DELETE FROM users")
+    print("All existing data cleared.")
 
+def insert_event(cursor, title, venue, city, description, starts_at, ends_at, status):
+    # No need to check existence anymore since we cleared everything
     cursor.execute("""
         INSERT INTO event (title, venue, city, description, starts_at, ends_at, status)
         VALUES (%s, %s, %s, %s, %s, %s, %s)
@@ -36,11 +42,6 @@ def insert_event(cursor, title, venue, city, description, starts_at, ends_at, st
     return event_id
 
 def insert_ticket(cursor, event_id, name, price, capacity):
-    cursor.execute("SELECT id FROM ticket WHERE event_id=%s AND name=%s", (event_id, name))
-    if cursor.fetchone():
-        print(f"Ticket '{name}' already exists for event {event_id}.")
-        return
-
     cursor.execute("""
         INSERT INTO ticket (event_id, name, price, capacity, remaining)
         VALUES (%s, %s, %s, %s, %s)
@@ -48,13 +49,8 @@ def insert_ticket(cursor, event_id, name, price, capacity):
     print(f"Inserted ticket '{name}' for event {event_id}.")
 
 def insert_user(cursor):
-    email = "demo@primepass.com"
-    cursor.execute("SELECT id FROM users WHERE email=%s", (email,))
-    if cursor.fetchone():
-        print("Demo user already exists.")
-        return
-
     user_id = uuid.UUID("00000000-0000-0000-0000-000000000001")
+    email = "demo@primepass.com"
     password_hash = generate_password_hash("password123")
 
     cursor.execute("""
@@ -65,7 +61,11 @@ def insert_user(cursor):
 
 def populate():
     conn, cursor = connect_to_postgres()
+    
+    # Clear all existing data first
+    clear_all_data(cursor)
 
+    # Insert fresh data
     event1_id = insert_event(cursor, "Nordic Music Festival", "Central Park Arena", "Helsinki",
                              "A full-day outdoor music festival featuring Nordic artists.",
                              datetime.datetime(2026, 6, 15, 12, 0, 0),
@@ -88,7 +88,7 @@ def populate():
     conn.commit()
     cursor.close()
     conn.close()
-    print("Database population complete.")
+    print("Database population complete (old data cleared, fresh data inserted).")
 
 if __name__ == "__main__":
     populate()
