@@ -41,26 +41,16 @@ For each service, build the Docker image directly in Minikube's Docker environme
 Apply all YAML files in the correct order:
 
     cd k8s
-
-    # Apply PersistentVolume and Claim first
-    kubectl apply -f psql-pv.yaml
-    kubectl apply -f psql-claim.yaml
-
-    # Apply ConfigMap and Secrets
-    kubectl apply -f postgres-configmap.yaml
-    kubectl apply -f primepass-appuser-secret.yaml
-
-    # Deploy PostgreSQL
-    kubectl apply -f ps-deployment.yaml
-    kubectl apply -f ps-service.yaml
-
-    # Deploy Backend
-    kubectl apply -f backend-deployment.yaml
-    kubectl apply -f backend-service.yaml
-
-    # Deploy Frontend
-    kubectl apply -f frontend-deployment.yaml
-    kubectl apply -f frontend-service.yaml
+    kubectl apply -f postgres-replication-secret.yaml
+    kubectl apply -f postgres-primary-statefulset.yaml
+    kubectl apply -f postgres-replica-statefulset.yaml
+    kubectl apply -f postgres-primary-service.yaml
+    kubectl apply -f postgres-replica-service.yaml
+    # Then reapply backend, frontend, configmap, etc. if they were deleted
+    kubectl apply -f ../backend-deployment.yaml
+    kubectl apply -f ../backend-service.yaml
+    kubectl apply -f ../frontend-deployment.yaml
+    kubectl apply -f ../frontend-service.yaml
 
     cd ..
 
