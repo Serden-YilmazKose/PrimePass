@@ -163,7 +163,7 @@ def login():
     if not email or not password:
         return jsonify({"error": "email and password required"}), 400
 
-    conn, cursor = connect_primary()  # 👈 uses primary (both read and write)
+    conn, cursor = connect_primary()  
     try:
         cursor.execute("SELECT id, password_hash FROM users WHERE email=%s", (email,))
         user = cursor.fetchone()
