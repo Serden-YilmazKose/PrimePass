@@ -5,18 +5,18 @@ def test_event_payload_sizes(api_client, db_cursor):
     import time
     from datetime import datetime, timedelta
 
-    # Helper to generate random strings
+   
     def random_string(length):
         return ''.join(random.choices(string.ascii_letters + string.digits, k=length))
 
-    # --- Clear all events (cascade deletes tickets) ---
+    
     db_cursor.execute("DELETE FROM event")
     db_cursor.connection.commit()
     print("\n--- Event Payload Test (starting with empty database) ---")
 
-    # --- Create small event ---
+    
     small_title = "Small Event"
-    small_desc = random_string(100)          # short description
+    small_desc = random_string(100)          
     small_tickets = 3
     db_cursor.execute("""
         INSERT INTO event (title, venue, city, description, starts_at, ends_at, status)
@@ -33,11 +33,11 @@ def test_event_payload_sizes(api_client, db_cursor):
 
     db_cursor.connection.commit()
 
-    # --- Fetch events (should contain only small event) ---
+    
     start = time.time()
     resp = api_client.get(f"{api_client.base_url}/api/events")
     elapsed_small = time.time() - start
-    content_size_small = len(resp.content)   # response size in bytes
+    content_size_small = len(resp.content)   
 
     assert resp.status_code == 200
     events = resp.json()
@@ -49,9 +49,9 @@ def test_event_payload_sizes(api_client, db_cursor):
     print(f"Small event inserted. Tickets: {small_tickets}, "
           f"Response time: {elapsed_small:.3f}s, Response size: {content_size_small} bytes")
 
-    # --- Create large event ---
+    
     large_title = "Large Event with many tickets and long description"
-    large_desc = random_string(5000)          # 5 KB description
+    large_desc = random_string(5000)         
     large_tickets = 50
     db_cursor.execute("""
         INSERT INTO event (title, venue, city, description, starts_at, ends_at, status)
@@ -68,7 +68,7 @@ def test_event_payload_sizes(api_client, db_cursor):
 
     db_cursor.connection.commit()
 
-    # --- Fetch events again (should contain both) ---
+    
     start = time.time()
     resp = api_client.get(f"{api_client.base_url}/api/events")
     elapsed_large = time.time() - start
