@@ -1,0 +1,61 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: postgres-primary
+spec:
+  serviceName: postgres-primary-headless
+  replicas: 1
+  selector:
+    matchLabels:
+      app: postgres
+      role: primary
+  template:
+    metadata:
+      labels:
+        app: postgres
+        role: primary
+    spec:
+      containers:
+        - name: postgres
+          image: bitnami/postgresql:14
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 5432
+          env:
+            - name: POSTGRESQL_POSTGRES_PASSWORD
+              value: "adminpassword"        # superuser password
+            - name: POSTGRESQL_USERNAME
+              valueFrom:
+                configMapKeyRef:
+                  name: postgres-config
+                  key: POSTGRES_USER
+            - name: POSTGRESQL_PASSWORD
+              valueFrom:
+                configMapKeyRef:
+                  name: postgres-config
+                  key: POSTGRES_PASSWORD
+            - name: POSTGRESQL_DATABASE
+              valueFrom:
+                configMapKeyRef:
+                  name: postgres-config
+                  key: POSTGRES_DB
+            - name: POSTGRESQL_REPLICATION_MODE
+              value: master
+            - name: POSTGRESQL_REPLICATION_USER
+              value: repl_user
+            - name: POSTGRESQL_REPLICATION_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: postgres-replication-secret
+                  key: password
+          volumeMounts:
+            - name: postgres-data
+              mountPath: /bitnami/postgresql
+  volumeClaimTemplates:
+    - metadata:
+        name: postgres-data
+      spec:
+        accessModes: [ "ReadWriteOnce" ]
+        resources:
+          requests:
+            storage: 10Gi
