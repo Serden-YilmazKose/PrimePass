@@ -25,12 +25,12 @@ def connect_replica():
     """Connect to the replica database (reads)."""
     return _connect(os.environ.get("DB_REPLICA_HOST", "primepass-replica"))
 
-# Keep the old name for backward compatibility (used by init/populate scripts)
+
 connect_to_postgres = connect_primary
 
 def create_tables():
-    conn, cursor = connect_primary()  # must run on primary
-    # ... (rest of the function unchanged)
+    conn, cursor = connect_primary()  
+   
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS event (
         id SERIAL PRIMARY KEY,
