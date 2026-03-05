@@ -22,7 +22,7 @@ def connect_to_postgres():
 def clear_all_data(cursor):
     """Delete all data from tables in correct order (respecting foreign keys)."""
     print("Clearing existing data...")
-    # Delete in reverse order of dependencies
+   
     cursor.execute("DELETE FROM user_activity")
     cursor.execute("DELETE FROM orders")
     cursor.execute("DELETE FROM ticket")
@@ -31,7 +31,7 @@ def clear_all_data(cursor):
     print("All existing data cleared.")
 
 def insert_event(cursor, title, venue, city, description, starts_at, ends_at, status):
-    # No need to check existence anymore since we cleared everything
+    
     cursor.execute("""
         INSERT INTO event (title, venue, city, description, starts_at, ends_at, status)
         VALUES (%s, %s, %s, %s, %s, %s, %s)
@@ -62,10 +62,10 @@ def insert_user(cursor):
 def populate():
     conn, cursor = connect_to_postgres()
     
-    # Clear all existing data first
+
     clear_all_data(cursor)
 
-    # Insert fresh data
+    
     event1_id = insert_event(cursor, "Nordic Music Festival", "Central Park Arena", "Helsinki",
                              "A full-day outdoor music festival featuring Nordic artists.",
                              datetime.datetime(2026, 6, 15, 12, 0, 0),
