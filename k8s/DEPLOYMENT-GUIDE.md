@@ -266,3 +266,43 @@ If you get `ErrImageNeverPull` or `ImagePullBackOff`:
 
     # Restart deployments
     kubectl rollout restart deployment/backend deployment/frontend
+
+
+# Check orders on primary
+
+    kubectl exec -it postgres-primary-0 -- psql -U appuser -d primepass_db -c "SELECT * FROM orders;"
+
+# Check orders on replica
+
+    kubectl exec -it postgres-replica-0 -- psql -U appuser -d primepass_db -c "SELECT * FROM orders;"
+
+# Detailed view of purchases with event/ticket info on primary
+
+    kubectl exec -it postgres-primary-0 -- psql -U appuser -d primepass_db -c "
+    SELECT o.id as order_id, u.email, e.title as event, t.name as ticket_type, 
+        t.price, o.status, o.created_at
+    FROM orders o
+    JOIN users u ON o.user_id::text = u.id::text
+    JOIN ticket t ON o.ticket_id = t.id
+    JOIN event e ON t.event_id = e.id
+    ORDER BY o.created_at DESC;"
+
+# Check ticket remaining counts after purchases
+
+    kubectl exec -it postgres-primary-0 -- psql -U appuser -d primepass_db -c "
+    SELECT e.title, t.name, t.capacity, t.remaining, (t.capacity - t.remaining) as sold
+    FROM ticket t
+    JOIN event e ON t.event_id = e.id
+    ORDER BY e.title, t.name;"
+
+# Verify replication status from primary
+
+    kubectl exec -it postgres-primary-0 -- psql -U postgres -c "SELECT * FROM pg_stat_replication;"
+
+# Quick count comparison between primary and replica
+
+    echo "Primary order count:" && kubectl exec postgres-primary-0 -- psql -U appuser -d primepass_db -t -c "SELECT COUNT(*) FROM orders;" && echo "Replica order count:" && kubectl exec postgres-replica-0 -- psql -U appuser -d primepass_db -t -c "SELECT COUNT(*) FROM orders;"
+
+# Check replica logs for replication errors
+
+    kubectl logs postgres-replica-0 --tail=50
