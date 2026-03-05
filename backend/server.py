@@ -1,44 +1,52 @@
-"""Flask API for ticket sales using MariaDB"""
+"""Flask API for ticket sales using MariaDB with logging, tracing, and caching"""
 import uuid
 import mariadb
-import json
+import time
+import logging
 
 from flask import Flask, jsonify, request
 from werkzeug.security import check_password_hash, generate_password_hash
-
 from init_db import connect_to_mariadb
 
 app = Flask(__name__)
 
-def _safe_int(value, default=None):
-    try:
-        return int(value)
-    except (TypeError, ValueError):
-        return default
-    
-def log_activity(cursor, user_id: str, event_id, action: str, meta: dict | None = None):
-    """
-    Insert into USER_ACTIVITY.
-    Table columns assumed:
-      (id VARCHAR(36), user_id VARCHAR(36), event_id INT NULL, action VARCHAR(50), meta JSON NULL, created_at ...)
-    """
-    activity_id = str(uuid.uuid4())
-    meta_json = json.dumps(meta) if meta is not None else None
+# CENTRALIZED LOGGING 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s | %(levelname)s | %(message)s"
+)
+logger = logging.getLogger("ticket-service")
 
-    cursor.execute(
-        """
-        INSERT INTO USER_ACTIVITY (id, user_id, event_id, action, meta)
-        VALUES (?, ?, ?, ?, ?)
-        """,
-        (activity_id, user_id, event_id, action, meta_json),
-    )
-    return activity_id
+# SIMPLE IN-MEMORY CACHE 
+cache = {}
+CACHE_EXPIRATION = 10  
 
+# HELPER FUNCTION 
+def get_trace_id():
+    trace_id = request.headers.get("X-Trace-ID")
+    if not trace_id:
+        trace_id = str(uuid.uuid4())
+    return trace_id
 
+#  ENDPOINTS 
 @app.route("/api/events", methods=["GET"])
 def get_events():
+    trace_id = get_trace_id()
+    logger.info(f"[TraceID: {trace_id}] Request received for all events")
+
+    # Check cache first
+    if "events" in cache:
+        cached_data, timestamp = cache["events"]
+        if time.time() - timestamp < CACHE_EXPIRATION:
+            logger.info(f"[TraceID: {trace_id}] Returning cached events")
+            return jsonify(cached_data)
+        else:
+            logger.info(f"[TraceID: {trace_id}] Cache expired")
+            del cache["events"]
+
     conn, cursor = connect_to_mariadb()
     try:
+        logger.info(f"[TraceID: {trace_id}] Fetching events from database")
         cursor.execute("""
             SELECT
                 e.id,
@@ -56,14 +64,11 @@ def get_events():
             LEFT JOIN TICKET t ON e.id = t.event_id
             ORDER BY e.id
         """)
-
         rows = cursor.fetchall()
 
         events_dict = {}
-
         for row in rows:
             event_id = row[0]
-
             if event_id not in events_dict:
                 events_dict[event_id] = {
                     "id": event_id,
@@ -75,9 +80,7 @@ def get_events():
                     "status": row[6],
                     "tickets": []
                 }
-
             ticket_id = row[7]
-
             if ticket_id:
                 events_dict[event_id]["tickets"].append({
                     "id": ticket_id,
@@ -86,132 +89,126 @@ def get_events():
                     "remaining": row[10]
                 })
 
-        return jsonify(list(events_dict.values()))
-
+        result = list(events_dict.values())
+        # Save to cache
+        cache["events"] = (result, time.time())
+        return jsonify(result)
     finally:
         cursor.close()
         conn.close()
 
 @app.route("/api/activity", methods=["POST"])
-def track_activity():
+def log_activity():
+    trace_id = get_trace_id()
+    
     if not request.is_json:
         return jsonify({"error": "JSON required"}), 400
 
     data = request.get_json()
     user_id = data.get("user_id")
-    event_id = data.get("event_id")  
-    action = data.get("action") or "view"
-    meta = data.get("meta")  
+    event_id = data.get("event_id")
+    action = data.get("action")
+    meta = data.get("meta")
 
-    # Basic validation
-    if not user_id:
-        return jsonify({"error": "user_id required"}), 400
-
-    # If event_id is provided, ensure it's an integer or can be converted to one
-    if event_id is not None:
-        event_id_int = _safe_int(event_id)
-        if event_id_int is None:
-            return jsonify({"error": "event_id must be an integer"}), 400
-        event_id = event_id_int
-
-    if not isinstance(action, str) or not action.strip():
-        return jsonify({"error": "action must be a non-empty string"}), 400
-
-    if meta is not None and not isinstance(meta, dict):
-        return jsonify({"error": "meta must be an object/dict"}), 400
+    if not user_id or not action:
+        logger.warning(f"[TraceID: {trace_id}] Missing activity fields")
+        return jsonify({"error": "user_id and action required"}), 400
 
     conn, cursor = connect_to_mariadb()
     try:
-        activity_id = log_activity(cursor, user_id=user_id, event_id=event_id, action=action, meta=meta)
+        # Generate a unique ID for the activity record
+        activity_id = str(uuid.uuid4())
+        
+        # Insert into USER_ACTIVITY table (which you defined in init_db.py)
+        cursor.execute("""
+            INSERT INTO USER_ACTIVITY (id, user_id, event_id, action, meta)
+            VALUES (?, ?, ?, ?, ?)
+        """, (activity_id, user_id, event_id, action, str(meta)))
+
         conn.commit()
-        return jsonify({"status": "ok", "activity_id": activity_id}), 201
-    except mariadb.Error as e:
-        conn.rollback()
-        return jsonify({"error": f"Activity logging failed: {e}"}), 500
+        logger.info(f"[TraceID: {trace_id}] Activity Logged: User {user_id} -> {action} on Event {event_id}")
+        return jsonify({"status": "success", "activity_id": activity_id}), 201
+
+    except Exception as e:
+        logger.error(f"[TraceID: {trace_id}] Failed to log activity: {e}")
+        return jsonify({"error": "Internal logging error"}), 500
     finally:
         cursor.close()
         conn.close()
 
-
 @app.route("/api/purchase", methods=["POST"])
 def purchase_ticket():
+    trace_id = get_trace_id()  
+
     if not request.is_json:
-        print("Request not JSON")
+        logger.warning(f"[TraceID: {trace_id}] Purchase request not JSON")
         return jsonify({"error": "JSON required"}), 400
 
     data = request.get_json()
     user_id = data.get("user_id")
-    ticket_id = _safe_int(data.get("ticket_id"))
-    quantity = _safe_int(data.get("quantity"))
+    ticket_id = data.get("ticket_id")
+    quantity = data.get("quantity")
 
-    print(f"Purchase request received: user_id={user_id}, ticket_id={ticket_id}, quantity={quantity}")
+    logger.info(f"[TraceID: {trace_id}] Purchase request received: user_id={user_id}, ticket_id={ticket_id}, quantity={quantity}")
 
-    if not user_id or ticket_id is None or quantity is None:
-        print("Missing required fields")
+    if not user_id or not ticket_id or not quantity:
+        logger.warning(f"[TraceID: {trace_id}] Missing required fields")
         return jsonify({"error": "Missing required fields"}), 400
 
     if quantity <= 0:
-        print("Invalid quantity")
+        logger.warning(f"[TraceID: {trace_id}] Invalid quantity: {quantity}")
         return jsonify({"error": "Invalid quantity"}), 400
 
     conn, cursor = connect_to_mariadb()
     try:
-        # Log before running the update
-        print(f"Attempting to decrease remaining tickets for ticket {ticket_id} by {quantity}")
+        logger.info(f"[TraceID: {trace_id}] Attempting to decrease remaining tickets for ticket {ticket_id} by {quantity}")
         cursor.execute(
             "UPDATE TICKET SET remaining = remaining - ? WHERE id = ? AND remaining >= ?",
             (quantity, ticket_id, quantity)
         )
-        print(f"Rows affected: {cursor.rowcount}")
+        logger.info(f"[TraceID: {trace_id}] Rows affected: {cursor.rowcount}")
 
         if cursor.rowcount == 0:
-            print("No tickets available or insufficient remaining")
+            logger.warning(f"[TraceID: {trace_id}] Tickets unavailable or sold out")
             return jsonify({"error": "Tickets unavailable or sold out"}), 400
 
-        order_data = [(str(uuid.uuid4()), user_id, ticket_id, 'confirmed') for _ in range(quantity)]
-        print(f"Inserting orders: {order_data}")
+        # Insert each order individually and log
+        for _ in range(quantity):   
+            cursor.execute("""
+                INSERT INTO `ORDERS` (user_id, ticket_id, status, created_at)
+                VALUES (?, ?, ?, NOW())
+            """, (user_id, ticket_id, 'confirmed'))
+            new_order_id = cursor.lastrowid
+            logger.info(f"[TraceID: {trace_id}] Order inserted: order_id={new_order_id}, user_id={user_id}, ticket_id={ticket_id}")
 
-        cursor.executemany("""
-            INSERT INTO `ORDERS` (user_id, ticket_id, status, created_at)
-            VALUES (?, ?, ?, NOW())
-        """, [(user_id, ticket_id, 'confirmed') for _ in range(quantity)])
-
-        cursor.execute("SELECT event_id FROM TICKET WHERE id = ?", (ticket_id,))
-        row = cursor.fetchone()
-        event_id = row[0] if row else None
-
-        log_activity(
-            cursor,
-            user_id=user_id,
-            event_id=event_id,
-            action="purchase",
-            meta={"ticket_id": ticket_id, "quantity": quantity}
-        )
 
         conn.commit()
-        print("Transaction committed successfully")
+        logger.info(f"[TraceID: {trace_id}] Transaction committed successfully")
         return jsonify({"status": "success"}), 200
 
     except mariadb.Error as e:
         conn.rollback()
-        print(f"MariaDB error: {e}")
+        logger.error(f"[TraceID: {trace_id}] MariaDB error: {e}")
         return jsonify({"error": f"Transaction failed: {e}"}), 500
     except Exception as e:
         conn.rollback()
-        print(f"Unexpected error: {e}")
+        logger.error(f"[TraceID: {trace_id}] Unexpected error: {e}")
         return jsonify({"error": f"Transaction failed: {e}"}), 500
     finally:
         cursor.close()
         conn.close()
 
-
 @app.route("/api/orders", methods=["GET"])
 def get_orders():
+    trace_id = get_trace_id()
     user_id = request.args.get("user_id")
     if not user_id:
+        logger.warning(f"[TraceID: {trace_id}] user_id required")
         return jsonify({"error": "user_id required"}), 400
+
     conn, cursor = connect_to_mariadb()
     try:
+        logger.info(f"[TraceID: {trace_id}] Fetching orders for user {user_id}")
         cursor.execute("""
             SELECT
                 o.id,
@@ -228,7 +225,6 @@ def get_orders():
             WHERE o.user_id = ?
             ORDER BY o.created_at DESC
         """, (user_id,))
-
         rows = cursor.fetchall()
         orders = [
             {
@@ -244,6 +240,53 @@ def get_orders():
             for row in rows
         ]
         return jsonify(orders)
+    finally:
+        cursor.close()
+        conn.close()
+
+
+@app.route("/api/register", methods=["POST"])
+def register():
+    trace_id = get_trace_id()
+
+    if not request.is_json:
+        logger.warning(f"[TraceID: {trace_id}] JSON required")
+        return jsonify({"error": "JSON required"}), 400
+
+    data = request.get_json()
+    name = data.get("name")
+    email = data.get("email")
+    password = data.get("password")
+
+    if not name or not email or not password:
+        logger.warning(f"[TraceID: {trace_id}] Missing registration fields")
+        return jsonify({"error": "name, email and password required"}), 400
+
+    conn, cursor = connect_to_mariadb()
+    try:
+        # Check if email already exists
+        cursor.execute("SELECT id FROM USERS WHERE email = ?", (email,))
+        if cursor.fetchone():
+            logger.warning(f"[TraceID: {trace_id}] Email already registered")
+            return jsonify({"error": "Email already registered"}), 400
+
+        user_id = str(uuid.uuid4())
+        password_hash = generate_password_hash(password)
+
+        cursor.execute("""
+            INSERT INTO USERS (id, name, email, password_hash, status)
+            VALUES (?, ?, ?, ?, ?)
+        """, (user_id, name, email, password_hash, 'active'))
+
+        conn.commit()
+
+        logger.info(f"[TraceID: {trace_id}] User registered: {user_id}")
+        return jsonify({"status": "registered", "user_id": user_id}), 201
+
+    except Exception as e:
+        conn.rollback()
+        logger.error(f"[TraceID: {trace_id}] Registration failed: {e}")
+        return jsonify({"error": "Registration failed"}), 500
 
     finally:
         cursor.close()
@@ -252,62 +295,47 @@ def get_orders():
 
 @app.route("/api/login", methods=["POST"])
 def login():
+    trace_id = get_trace_id()
+
     if not request.is_json:
-        return jsonify({"error": "json required"}), 400
+        logger.warning(f"[TraceID: {trace_id}] JSON required")
+        return jsonify({"error": "JSON required"}), 400
 
     data = request.get_json()
-    name = data.get("name")
     email = data.get("email")
     password = data.get("password")
 
     if not email or not password:
-        return jsonify({"error": "name, email, and password required"}), 400
+        logger.warning(f"[TraceID: {trace_id}] Missing login fields")
+        return jsonify({"error": "email and password required"}), 400
 
     conn, cursor = connect_to_mariadb()
-
-    # 1. look for the user
-    cursor.execute(
-        "select id, password_hash from USERS where email = ?", (email,))
-    user = cursor.fetchone()
-
-    if user:
-        user_id, stored_hash = user
-        # 2. verify the password
-        if check_password_hash(stored_hash, password):
-            cursor.close()
-            conn.close()
-            return jsonify({"status": "login_success", "user_id": user_id})
-        cursor.close()
-        conn.close()
-        return jsonify({"error": "invalid credentials"}), 401
-
-    # 3. if user doesn't exist, register them
-    if not name:
-        cursor.close()
-        conn.close()
-        return jsonify({"error": "user not found. name required to register"}), 400
-
-    # hash the password before saving
-    secure_hash = generate_password_hash(password)
-    # create uuid
-    new_id = str(uuid.uuid4())
-
     try:
-        cursor.execute("""
-            insert into USERS (id, name, email, password_hash, status)
-            values (?, ?, ?, ?, ?)
-        """, (new_id, name, email, secure_hash, 'active'))
-        conn.commit()
-        return jsonify({"status": "user_created", "user_id": new_id}), 201
+        cursor.execute("SELECT id, password_hash FROM USERS WHERE email = ?", (email,))
+        user = cursor.fetchone()
 
-    except Exception:
-        return jsonify({"error": "registration failed"}), 500
+        if not user:
+            logger.warning(f"[TraceID: {trace_id}] User not found")
+            return jsonify({"error": "User not found"}), 404
+
+        user_id, stored_hash = user
+
+        if not check_password_hash(stored_hash, password):
+            logger.warning(f"[TraceID: {trace_id}] Invalid password")
+            return jsonify({"error": "Invalid credentials"}), 401
+
+        logger.info(f"[TraceID: {trace_id}] Login successful: {user_id}")
+        return jsonify({"status": "login_success", "user_id": user_id}), 200
+
+    except Exception as e:
+        logger.error(f"[TraceID: {trace_id}] Login failed: {e}")
+        return jsonify({"error": "Login failed"}), 500
+
     finally:
         cursor.close()
         conn.close()
 
-    return jsonify({"error": "idk, something happened"}), 500
 
-
+#  RUN SERVER 
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=5000, debug=True)

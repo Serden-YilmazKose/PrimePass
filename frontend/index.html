@@ -24,6 +24,14 @@
             height: 60px;
         }
 
+        .auth-box {
+            background: white;
+            padding: 1rem;
+            margin: 1rem 2rem;
+            border-radius: 6px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
         h1 {
             text-align: left;
             margin: 1rem 0;
@@ -106,7 +114,20 @@
 
 <header>
     <img src="logo.png" alt="PrimePass Logo">
+
+    <div id="user-profile">
+        <span id="display-name"></span>
+        <button onclick="logout()" class="logout-btn">Logout</button>
+    </div>
 </header>
+
+<div class="auth-box" id="login-container">
+    <input id="name" placeholder="Name">
+    <input id="email" type="email" placeholder="Email" required>
+    <input id="password" type="password" placeholder="Password" required>
+    <button onclick="register()">Register</button>
+    <button onclick="login()">Login</button>
+</div>
 
 <h1>Available Events</h1>
 
