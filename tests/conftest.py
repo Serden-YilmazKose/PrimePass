@@ -5,7 +5,7 @@ import requests
 from threading import Lock
 from werkzeug.security import generate_password_hash
 
-# ---- Database fixtures ----
+
 @pytest.fixture(scope="session")
 def db_conn():
     """Return a connection to the PostgreSQL database (primary)."""
@@ -24,14 +24,14 @@ def db_cursor(db_conn):
     """Provide a cursor and automatically roll back after test."""
     cursor = db_conn.cursor()
     yield cursor
-    db_conn.rollback()  # clean up any changes
+    db_conn.rollback()  
     cursor.close()
 
-# ---- API client ----
+
 @pytest.fixture(scope="session")
 def base_url():
     """Base URL of the running backend API."""
-    # Can be overridden by environment variable, default to local dev
+   
     return os.environ.get("API_URL", "http://localhost:5000")
 
 @pytest.fixture
@@ -41,7 +41,7 @@ def api_client(base_url):
     session.base_url = base_url
     yield session
 
-# ---- Test data helpers ----
+
 @pytest.fixture
 def test_user(db_cursor):
     """Create a known test user and return its ID."""
@@ -68,7 +68,7 @@ def test_event(db_cursor):
           datetime.now(), datetime.now() + timedelta(hours=2), "active"))
     event_id = db_cursor.fetchone()[0]
 
-    # Add tickets
+    
     tickets = {}
     for name, price, cap in [("Standard", 50.0, 10), ("VIP", 100.0, 5)]:
         db_cursor.execute("""
