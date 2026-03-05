@@ -2,14 +2,14 @@
 
 This README provides instructions for deploying and managing the PrimePass application on Kubernetes (Minikube). All Kubernetes configuration files are located in the `k8s/` directory.
 
-## 📋 Prerequisites
+## Prerequisites
 
 - [Minikube](https://minikube.sigs.k8s.io/docs/start/) installed and running
 - [kubectl](https://kubernetes.io/docs/tasks/tools/) installed
 - Docker installed
 - The PrimePass project cloned locally
 
-## 🚀 Quick Start
+## Quick Start
 
 ### 1. Start Minikube
 
@@ -85,7 +85,7 @@ Modify `frontend-service.yaml` to use `type: LoadBalancer`, then in a dedicated 
 
 The app will be available at `http://localhost:80` (or `http://localhost:8080` if you changed the port).
 
-## 🔄 Making Code Changes
+##  Making Code Changes
 
 ### Rebuilding Images After Code Changes
 
@@ -116,7 +116,7 @@ Whenever you modify the backend or frontend code, rebuild and restart:
     kubectl exec <backend-pod-name> -- cat /app/server.py
     kubectl exec <frontend-pod-name> -- ls -la /usr/share/nginx/html
 
-## 📊 Logs and Debugging
+## Logs and Debugging
 
 ### View Logs
 
@@ -167,7 +167,7 @@ Whenever you modify the backend or frontend code, rebuild and restart:
     # PostgreSQL
     kubectl exec -it <postgres-pod> -- psql -U appuser -d primepass_db
 
-## 🛑 Restarting and Cleanup
+## Restarting and Cleanup
 
 ### Restart Deployments
 
@@ -210,7 +210,7 @@ Whenever you modify the backend or frontend code, rebuild and restart:
 
     minikube stop
 
-## 📝 Useful Commands Cheat Sheet
+## Useful Commands Cheat Sheet
 
 | Command | Description |
 |---------|-------------|
@@ -224,7 +224,7 @@ Whenever you modify the backend or frontend code, rebuild and restart:
 | `kubectl describe pod <pod>` | Debug pod issues |
 | `kubectl delete -f k8s/` | Delete all resources |
 
-## 🐛 Troubleshooting
+## Troubleshooting
 
 ### Pods stuck in `Pending` or `ContainerCreating`
 
