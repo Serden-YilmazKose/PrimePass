@@ -3,7 +3,7 @@ import json
 import psycopg
 from flask import Flask, jsonify, request
 from werkzeug.security import check_password_hash, generate_password_hash
-from init_db import connect_to_postgres
+from init_db import connect_primary, connect_replica
 
 app = Flask(__name__)
 
@@ -14,11 +14,6 @@ def _safe_int(value, default=None):
         return default
 
 def log_activity(cursor, user_id: str, event_id, action: str, meta: dict | None = None):
-    """
-    Insert into USER_ACTIVITY.
-    Table columns assumed:
-      (id VARCHAR(36), user_id VARCHAR(36), event_id INT NULL, action VARCHAR(50), meta JSON NULL, created_at ...)
-    """
     activity_id = str(uuid.uuid4())
     meta_json = json.dumps(meta) if meta is not None else None
 
@@ -33,7 +28,7 @@ def log_activity(cursor, user_id: str, event_id, action: str, meta: dict | None 
 
 @app.route("/api/events", methods=["GET"])
 def get_events():
-    conn, cursor = connect_to_postgres()
+    conn, cursor = connect_replica()
     try:
         cursor.execute("""
             SELECT e.id, e.title, e.venue, e.city, e.starts_at, e.ends_at, e.status,
@@ -90,7 +85,7 @@ def track_activity():
     if meta is not None and not isinstance(meta, dict):
         return jsonify({"error": "meta must be an object/dict"}), 400
 
-    conn, cursor = connect_to_postgres()
+    conn, cursor = connect_primary()
     try:
         activity_id = log_activity(cursor, user_id=user_id, event_id=event_id, action=action, meta=meta)
         conn.commit()
@@ -111,7 +106,7 @@ def purchase_ticket():
     if not user_id or not ticket_id or not quantity or quantity <= 0:
         return jsonify({"error": "Missing or invalid fields"}), 400
 
-    conn, cursor = connect_to_postgres()
+    conn, cursor = connect_primary()
     try:
         cursor.execute(
             "UPDATE ticket SET remaining = remaining - %s WHERE id = %s AND remaining >= %s",
@@ -138,7 +133,7 @@ def get_orders():
     user_id = request.args.get("user_id")
     if not user_id:
         return jsonify({"error": "user_id required"}), 400
-    conn, cursor = connect_to_postgres()
+    conn, cursor = connect_replica()
     try:
         cursor.execute("""
             SELECT o.id, o.status, o.created_at, t.name, t.price, e.title, e.city, e.starts_at
@@ -168,7 +163,7 @@ def login():
     if not email or not password:
         return jsonify({"error": "email and password required"}), 400
 
-    conn, cursor = connect_to_postgres()
+    conn, cursor = connect_primary()  # 👈 uses primary (both read and write)
     try:
         cursor.execute("SELECT id, password_hash FROM users WHERE email=%s", (email,))
         user = cursor.fetchone()

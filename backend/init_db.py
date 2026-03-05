@@ -2,24 +2,35 @@ import os
 import sys
 import psycopg
 
-def connect_to_postgres():
-    """Connect to PostgreSQL using environment variables"""
+def _connect(host):
+    """Internal helper to connect to a specific PostgreSQL host."""
     try:
         conn = psycopg.connect(
-            host=os.environ.get("DB_HOST", "127.0.0.1"),
+            host=host,
             dbname=os.environ.get("DB_NAME", "primepass_db"),
             user=os.environ.get("DB_USER", "appuser"),
             password=os.environ.get("DB_PASSWORD", "SecurePassword"),
             port=5432
         )
     except psycopg.Error as e:
-        print(f"Error connecting to PostgreSQL: {e}")
+        print(f"Error connecting to PostgreSQL at {host}: {e}")
         sys.exit(1)
     return conn, conn.cursor()
 
-def create_tables():
-    conn, cursor = connect_to_postgres()
+def connect_primary():
+    """Connect to the primary database (writes)."""
+    return _connect(os.environ.get("DB_HOST", "primepass-primary"))
 
+def connect_replica():
+    """Connect to the replica database (reads)."""
+    return _connect(os.environ.get("DB_REPLICA_HOST", "primepass-replica"))
+
+# Keep the old name for backward compatibility (used by init/populate scripts)
+connect_to_postgres = connect_primary
+
+def create_tables():
+    conn, cursor = connect_primary()  # must run on primary
+    # ... (rest of the function unchanged)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS event (
         id SERIAL PRIMARY KEY,
@@ -66,26 +77,16 @@ def create_tables():
     )
     """)
 
-    # USER_ACTIVITY TABLE
-    cursor.execute("""CREATE TABLE IF NOT EXISTS `USER_ACTIVITY` (
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS user_activity (
         id VARCHAR(36) PRIMARY KEY,
         user_id VARCHAR(36) NOT NULL,
-        event_id INT NULL,
+        event_id INT NULL REFERENCES event(id) ON DELETE SET NULL,
         action VARCHAR(50) NOT NULL,
         meta JSON NULL,
-        created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-        INDEX idx_activity_user_created (user_id, created_at),
-        INDEX idx_activity_event_created (event_id, created_at),
-        CONSTRAINT fk_user_activity_user
-            FOREIGN KEY (user_id)
-            REFERENCES USERS(id)
-            ON DELETE CASCADE,
-        CONSTRAINT fk_user_activity_event
-            FOREIGN KEY (event_id)
-            REFERENCES EVENT(id)
-            ON DELETE SET NULL
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
-    """) 
+    """)
 
     conn.commit()
     cursor.close()
