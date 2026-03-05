@@ -46,6 +46,9 @@ Apply all YAML files in the correct order:
     kubectl apply -f postgres-replica-statefulset.yaml
     kubectl apply -f postgres-primary-service.yaml
     kubectl apply -f postgres-replica-service.yaml
+    kubectl apply -f postgres-congfigmap.yaml
+    kubectl apply -f postgres-replica-service.yaml
+
     # Then reapply backend, frontend, configmap, etc. if they were deleted
     kubectl apply -f backend-deployment.yaml
     kubectl apply -f backend-service.yaml
